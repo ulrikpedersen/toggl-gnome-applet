@@ -6,7 +6,7 @@ logging.basicConfig(level=logging.WARNING)
 
 import os
 import urllib2, base64, json
-import dateutil
+import dateutil.parser
 
 def from_ISO8601( str_iso8601 ):
     return dateutil.parser.parse(str_iso8601)
@@ -14,9 +14,24 @@ def from_ISO8601( str_iso8601 ):
 def to_ISO8601( timestamp ):
     return timestamp.isoformat()
 
+def convert_time_strings(toggl_dicts):
+    timestamp_fields = ['at',
+                        'created_at',
+                        'start',
+                        'stop']
+    result = []
+    for tdict in toggl_dicts:
+        d = tdict
+        for tsf in timestamp_fields:
+            if tdict.has_key(tsf):
+                d[tsf] = from_ISO8601(tdict[tsf])
+        result.append(d)
+    return result
+
 class Toggl:
     def __init__(self, api_token=None):
         self.log = logging.getLogger("Toggl")
+        self.log.setLevel(logging.DEBUG)
         
         self.toggl_domain = "www.toggl.com"
         self.toggl_api = "https://%s/api/v8/" % self.toggl_domain
@@ -49,26 +64,30 @@ class Toggl:
         # Use base64.standard_b64encode instead of replace...
         user_pass = base64.encodestring('%s:%s' % (self._api_token, 'api_token')).replace('\n', '')
         request.add_header("Authorization", "Basic %s" % user_pass)   
-        result = urllib2.urlopen(request) # with no data, this is a http GET.
+        result = urllib2.urlopen(request, timeout = 2.0) # with no data, this is a http GET.
         self.log.debug("http request result: code=%s url=\'%s\'", result.getcode(), result.geturl())
         js = json.load(result)
-        self.log.debug("JSON raw result: %s" % json.dumps(js,sort_keys=True, indent=4, separators=(',', ': ')))
+        #self.log.debug("JSON raw result: %s" % json.dumps(js,sort_keys=True, indent=4, separators=(',', ': ')))
         return js
     
     def get_workspaces(self):
         self.log.debug("get_workspaces()")
         js = self.send_request(self.toggl_api + "workspaces")
+        js = convert_time_strings(js)
         return js
     
     def get_default_workspace(self):
         self.log.debug("get_default_workspace()")
         wid = self.get_user()['default_wid']
         js = self.send_request(self.toggl_api + "workspaces/%s"%str(wid))
-        return js['data']
+        js = convert_time_strings([js['data']])
+        return js[0]
     
     def get_default_workspace_id(self):
+        self.log.debug("get_default_workspace_id()")
         ws = self.get_default_workspace()
-        return ws['wid']
+        self.log.debug(ws)
+        return ws['id']
     
     def get_projects(self, wid=None):
         self.log.debug("get_projects(wid=%s)"%str(wid))
@@ -78,6 +97,7 @@ class Toggl:
             js = []
             for w in self.get_workspaces():
                 js += self.send_request(self.toggl_api + "workspaces/%s/projects"%str(w['id']))
+        js = convert_time_strings(js)
         return js
     
     def get_current_entry(self):
@@ -85,7 +105,8 @@ class Toggl:
         self.log.debug("get_current_entry()")
         js = self.send_request(self.toggl_api + "time_entries/current")
         self.log.debug( js )
-        return js['data']
+        js = convert_time_strings(js['data'])
+        return js
         
     def get_range_entries(self, start_end=None):
         '''Get a list of entries in a range (max 1000 entries).
@@ -102,6 +123,7 @@ class Toggl:
                 end = to_ISO8601(end)
             query += "?start_date=%s&end_date=%s"%(start, end)
         js = self.send_request(self.toggl_api + query)
+        js = convert_time_strings(js)
         return js
             
     def get_user(self):

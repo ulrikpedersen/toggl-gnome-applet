@@ -8,6 +8,10 @@ import toggl
 import threading
 from datetime import datetime
 
+import pygtk
+pygtk.require('2.0')
+import gtk
+
 class IViewModel:
     def get_projects(self):
         '''Return a list of project titles'''
@@ -15,6 +19,9 @@ class IViewModel:
     def get_time_entries(self):
         '''Return a list of time entry dictionaries.
         Default: {'project': "", 'description': "", 'duration': None}'''
+        raise NotImplementedError
+    def generate_liststore(self):
+        '''Create and return a gtk.ListStore model'''
         raise NotImplementedError
     def register_for_notification(self, func):
         '''Register a callable or function for a callback nofication when the 
@@ -41,13 +48,22 @@ class TogglModel(IControlModel, IViewModel):
         
         self.notifiers = []
         self._lock = threading.Lock()
+        self._get_updates()
     
     # Controller interface
     def update(self):
         thread = threading.Thread(target=self._get_updates)
         thread.start()
     
-    
+    def generate_liststore(self):
+        ls = gtk.ListStore(str, str, str, str)
+        # Get a list of dictionaries with project, description and duration
+        time_entries = self.get_time_entries()
+        for t in time_entries:
+            ls_item = [str(t['id']), t['description'], t['project'], str(t['duration'])]
+            ls.append(ls_item)
+        return ls
+        
     # View interface
     def register_for_notification(self, func):
         self.notifiers.append( func )
@@ -65,19 +81,21 @@ class TogglModel(IControlModel, IViewModel):
         entries = []
         try:
             for entry in self.time_entries:
-                d = {'project': "", 'description': "", 'duration': None}
+                d = {'id': 0, 'project': "", 'description': "", 'duration': None}
+                if entry.has_key('id'):
+                    d['id'] = int(entry['id'])
                 if entry.has_key('pid'):
                     # lookup the project name in project list
                     try:
                         i = next(index for (index,d) in enumerate(self.projects) if d['id'] == entry['pid'])
-                        d['project'] = self.projects[i]
+                        d['project'] = self.projects[i]['name']
                     except:
                         pass
                 if entry.has_key('description'):
                     d['description'] = entry['description']
                 if entry.has_key('start'):
-                    if entry.has_key('end'):
-                        d['duration'] = entry['end'] - entry['start']
+                    if entry.has_key('stop'):
+                        d['duration'] = entry['stop'] - entry['start']
                     #else:
                     #    d['duration'] = datetime.now() - entry['start']
                 entries.append(d)
@@ -110,27 +128,13 @@ class TogglModel(IControlModel, IViewModel):
         '''Return a sorted list of projects'''
         wid = self.toggl.get_default_workspace_id()
         # Sorted by project ID number
-        projects = self.get_projects(wid) 
-        self._convert_time_strings(projects)
+        projects = self.toggl.get_projects(wid) 
         return sorted(projects, key=lambda k: k['id'])
     
     def _get_toggl_time_entries(self):
         entries = self.toggl.get_range_entries()
-        self._convert_time_strings(entries)
         return entries
         
-    def _convert_time_strings(self, toggl_dicts):
-        timestamp_fields = ['at',
-                            'created_at',
-                            'start',
-                            'stop']
-        for tdict in toggl_dicts:
-            for tsf in timestamp_fields:
-                try:
-                    tdict[tsf] = toggl.from_ISO8601(tdict[tsf])
-                except:
-                    pass
-    
     def _notify_projects_change(self):
         for notify_cb in self.notifiers:
             notify_cb()

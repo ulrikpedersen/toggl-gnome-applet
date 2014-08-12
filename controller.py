@@ -3,6 +3,11 @@ Created on 11 Aug 2014
 
 @author: up45
 '''
+import pygtk
+pygtk.require('2.0')
+import gtk
+
+import model, view
 
 class Controller:
     '''
@@ -33,4 +38,11 @@ class Controller:
         self.model.update()
         
     
-    
+def main():
+    gtk.main()
+
+if __name__ == "__main__":
+    V = view.View()
+    M = model.TogglModel()
+    V.set_model(M.generate_liststore())
+    main()
