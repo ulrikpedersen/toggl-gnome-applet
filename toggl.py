@@ -63,7 +63,12 @@ class Toggl:
         # username:password
         # Use base64.standard_b64encode instead of replace...
         user_pass = base64.encodestring('%s:%s' % (self._api_token, 'api_token')).replace('\n', '')
-        request.add_header("Authorization", "Basic %s" % user_pass)   
+        request.add_header("Authorization", "Basic %s" % user_pass)  
+        opener = urllib2.build_opener(
+                urllib2.HTTPHandler(),
+                urllib2.HTTPSHandler(),
+                urllib2.ProxyHandler({'https': 'http://wwwcache.rl.ac.uk:8080'})) 
+        urllib2.install_opener(opener)
         result = urllib2.urlopen(request, timeout = 2.0) # with no data, this is a http GET.
         self.log.debug("http request result: code=%s url=\'%s\'", result.getcode(), result.geturl())
         js = json.load(result)

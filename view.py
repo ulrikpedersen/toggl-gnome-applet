@@ -19,16 +19,8 @@ class View():
         '''
         Constructor
         '''
-
-        # Create a new window
-        self.window = gtk.Window(gtk.WINDOW_TOPLEVEL)
-
-        self.window.set_title("Basic TreeView Example")
-
-        self.window.set_size_request(200, 200)
-
-        self.window.connect("delete_event", self.delete_event)
-
+        
+        
         # create a TreeStore with one string column to use as the model
         self.liststore = None
         
@@ -69,17 +61,8 @@ class View():
         # connect a click signal handler
         #self.treeview.connect("row-activated", self.on_click, 23)
         #self.liststore.connect("row-changed", self.row_changed, 24)
-
-        self.window.add(self.treeview)
-
-        self.window.show_all()
-        
+    
     def set_model(self, model):
         self.liststore = model
         self.treeview.set_model(self.liststore)
-        
-    # close the window and quit
-    def delete_event(self, widget, event, data=None):
-        gtk.main_quit()
-        return False
         
