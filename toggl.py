@@ -41,7 +41,7 @@ class Toggl:
         # Search for an Toggl API token in a list of files
         # No validation of the collected token
         # TODO: encryption of tokenfiles could be nice
-        tokenfiles = [os.path.expanduser(f) for f in ['.toggltoken', '~/.toggltoken']]
+        tokenfiles = [os.path.expanduser(f) for f in ['.toggltoken', '~/.toggltoken', '~/.togglapplet/.toggltoken']]
         for tf in tokenfiles:
             if os.path.exists( tf ):
                 try:
@@ -60,6 +60,8 @@ class Toggl:
         Throws an exception if the http response is not OK (200) or if no JSON can be decoded from the response.
         '''
         request = urllib2.Request( api_call_url )
+        self.log.debug("http request url = \'%s\'", request.get_full_url())
+
         # username:password
         # Use base64.standard_b64encode instead of replace...
         user_pass = base64.encodestring('%s:%s' % (self._api_token, 'api_token')).replace('\n', '')
@@ -69,7 +71,7 @@ class Toggl:
                 urllib2.HTTPSHandler(),
                 urllib2.ProxyHandler({'https': 'http://wwwcache.rl.ac.uk:8080'})) 
         urllib2.install_opener(opener)
-        result = urllib2.urlopen(request, timeout = 2.0) # with no data, this is a http GET.
+        result = urllib2.urlopen(request, timeout = 3.0) # with no data, this is a http GET.
         self.log.debug("http request result: code=%s url=\'%s\'", result.getcode(), result.geturl())
         js = json.load(result)
         #self.log.debug("JSON raw result: %s" % json.dumps(js,sort_keys=True, indent=4, separators=(',', ': ')))
