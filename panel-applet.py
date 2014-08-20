@@ -4,7 +4,13 @@ Created on Aug 12, 2014
 
 @author: up45
 '''
-
+if __name__ == '__main__':
+    try:
+        from pkg_resources import require
+        require('python-dateutil')
+    except:
+        pass
+    
 import sys
 import pygtk
 pygtk.require('2.0')
